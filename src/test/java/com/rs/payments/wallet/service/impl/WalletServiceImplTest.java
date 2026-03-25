@@ -1,13 +1,17 @@
 package com.rs.payments.wallet.service.impl;
 
 import com.rs.payments.wallet.exception.ResourceNotFoundException;
+import com.rs.payments.wallet.model.Transaction;
+import com.rs.payments.wallet.model.TransactionType;
 import com.rs.payments.wallet.model.User;
 import com.rs.payments.wallet.model.Wallet;
+import com.rs.payments.wallet.repository.TransactionRepository;
 import com.rs.payments.wallet.repository.UserRepository;
 import com.rs.payments.wallet.repository.WalletRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -27,6 +31,9 @@ class WalletServiceImplTest {
 
     @Mock
     private WalletRepository walletRepository;
+
+    @Mock
+    private TransactionRepository transactionRepository;
 
     @InjectMocks
     private WalletServiceImpl walletService;
@@ -92,6 +99,15 @@ class WalletServiceImplTest {
         assertEquals(new BigDecimal("150.00"), result.getBalance());
         verify(walletRepository, times(1)).findById(walletId);
         verify(walletRepository, times(1)).save(wallet);
+        
+        // Verify transaction creation
+        ArgumentCaptor<Transaction> transactionCaptor = ArgumentCaptor.forClass(Transaction.class);
+        verify(transactionRepository, times(1)).save(transactionCaptor.capture());
+        
+        Transaction savedTransaction = transactionCaptor.getValue();
+        assertEquals(TransactionType.DEPOSIT, savedTransaction.getType());
+        assertEquals(depositAmount, savedTransaction.getAmount());
+        assertEquals(walletId, savedTransaction.getWallet().getId());
     }
 
     @Test
@@ -105,6 +121,7 @@ class WalletServiceImplTest {
         assertThrows(IllegalArgumentException.class, () -> walletService.deposit(walletId, invalidAmount));
         verify(walletRepository, never()).findById(any());
         verify(walletRepository, never()).save(any());
+        verify(transactionRepository, never()).save(any());
     }
 
     @Test
@@ -120,5 +137,6 @@ class WalletServiceImplTest {
         assertThrows(ResourceNotFoundException.class, () -> walletService.deposit(walletId, depositAmount));
         verify(walletRepository, times(1)).findById(walletId);
         verify(walletRepository, never()).save(any());
+        verify(transactionRepository, never()).save(any());
     }
 }
