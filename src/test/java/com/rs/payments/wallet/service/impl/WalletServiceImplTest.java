@@ -68,4 +68,57 @@ class WalletServiceImplTest {
         assertThrows(ResourceNotFoundException.class, () -> walletService.createWalletForUser(userId));
         verify(userRepository, never()).save(any());
     }
+
+    @Test
+    @DisplayName("Should increase wallet balance on valid deposit")
+    void shouldIncreaseWalletBalanceOnValidDeposit() {
+        // Given
+        UUID walletId = UUID.randomUUID();
+        BigDecimal currentBalance = new BigDecimal("100.00");
+        BigDecimal depositAmount = new BigDecimal("50.00");
+        
+        Wallet wallet = new Wallet();
+        wallet.setId(walletId);
+        wallet.setBalance(currentBalance);
+        
+        when(walletRepository.findById(walletId)).thenReturn(Optional.of(wallet));
+        when(walletRepository.save(wallet)).thenReturn(wallet);
+
+        // When
+        Wallet result = walletService.deposit(walletId, depositAmount);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(new BigDecimal("150.00"), result.getBalance());
+        verify(walletRepository, times(1)).findById(walletId);
+        verify(walletRepository, times(1)).save(wallet);
+    }
+
+    @Test
+    @DisplayName("Should throw IllegalArgumentException for amount <= 0")
+    void shouldThrowIllegalArgumentExceptionForInvalidAmount() {
+        // Given
+        UUID walletId = UUID.randomUUID();
+        BigDecimal invalidAmount = BigDecimal.ZERO;
+
+        // When & Then
+        assertThrows(IllegalArgumentException.class, () -> walletService.deposit(walletId, invalidAmount));
+        verify(walletRepository, never()).findById(any());
+        verify(walletRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should throw ResourceNotFoundException if wallet not found")
+    void shouldThrowResourceNotFoundExceptionWhenWalletNotFound() {
+        // Given
+        UUID walletId = UUID.randomUUID();
+        BigDecimal depositAmount = new BigDecimal("50.00");
+        
+        when(walletRepository.findById(walletId)).thenReturn(Optional.empty());
+
+        // When & Then
+        assertThrows(ResourceNotFoundException.class, () -> walletService.deposit(walletId, depositAmount));
+        verify(walletRepository, times(1)).findById(walletId);
+        verify(walletRepository, never()).save(any());
+    }
 }
