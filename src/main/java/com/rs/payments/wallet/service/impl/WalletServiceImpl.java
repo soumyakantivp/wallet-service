@@ -99,4 +99,46 @@ public class WalletServiceImpl implements WalletService {
                 .orElseThrow(() -> new ResourceNotFoundException("Wallet not found"));
         return wallet.getBalance();
     }
+
+    @Override
+    @Transactional
+    public void transfer(UUID fromWalletId, UUID toWalletId, BigDecimal amount) {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Amount must be greater than 0");
+        }
+
+        if (fromWalletId.equals(toWalletId)) {
+            throw new IllegalArgumentException("Cannot transfer to the same wallet");
+        }
+
+        Wallet fromWallet = walletRepository.findById(fromWalletId)
+                .orElseThrow(() -> new ResourceNotFoundException("Source wallet not found"));
+
+        Wallet toWallet = walletRepository.findById(toWalletId)
+                .orElseThrow(() -> new ResourceNotFoundException("Destination wallet not found"));
+
+        if (fromWallet.getBalance().compareTo(amount) < 0) {
+            throw new IllegalArgumentException("Insufficient balance");
+        }
+
+        fromWallet.setBalance(fromWallet.getBalance().subtract(amount));
+        toWallet.setBalance(toWallet.getBalance().add(amount));
+
+        walletRepository.save(fromWallet);
+        walletRepository.save(toWallet);
+
+        Transaction transferOutTransaction = new Transaction();
+        transferOutTransaction.setWallet(fromWallet);
+        transferOutTransaction.setAmount(amount);
+        transferOutTransaction.setType(TransactionType.TRANSFER_OUT);
+        transferOutTransaction.setTimestamp(LocalDateTime.now());
+        transactionRepository.save(transferOutTransaction);
+
+        Transaction transferInTransaction = new Transaction();
+        transferInTransaction.setWallet(toWallet);
+        transferInTransaction.setAmount(amount);
+        transferInTransaction.setType(TransactionType.TRANSFER_IN);
+        transferInTransaction.setTimestamp(LocalDateTime.now());
+        transactionRepository.save(transferInTransaction);
+    }
 }
