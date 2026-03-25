@@ -259,4 +259,142 @@ class WalletServiceImplTest {
         assertThrows(ResourceNotFoundException.class, () -> walletService.getBalance(walletId));
         verify(walletRepository, times(1)).findById(walletId);
     }
+
+    @Test
+    @DisplayName("Should successfully transfer updates both balances and create transactions")
+    void shouldSuccessfullyTransferUpdatesBothBalances() {
+        // Given
+        UUID fromWalletId = UUID.randomUUID();
+        UUID toWalletId = UUID.randomUUID();
+        BigDecimal transferAmount = new BigDecimal("75.00");
+        
+        Wallet fromWallet = new Wallet();
+        fromWallet.setId(fromWalletId);
+        fromWallet.setBalance(new BigDecimal("100.00"));
+        
+        Wallet toWallet = new Wallet();
+        toWallet.setId(toWalletId);
+        toWallet.setBalance(new BigDecimal("50.00"));
+        
+        when(walletRepository.findById(fromWalletId)).thenReturn(Optional.of(fromWallet));
+        when(walletRepository.findById(toWalletId)).thenReturn(Optional.of(toWallet));
+        when(walletRepository.save(any(Wallet.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // When
+        walletService.transfer(fromWalletId, toWalletId, transferAmount);
+
+        // Then
+        assertEquals(new BigDecimal("25.00"), fromWallet.getBalance());
+        assertEquals(new BigDecimal("125.00"), toWallet.getBalance());
+        verify(walletRepository, times(2)).findById(any(UUID.class));
+        verify(walletRepository, times(2)).save(any(Wallet.class));
+        
+        // Verify two transactions created
+        ArgumentCaptor<Transaction> transactionCaptor = ArgumentCaptor.forClass(Transaction.class);
+        verify(transactionRepository, times(2)).save(transactionCaptor.capture());
+        
+        java.util.List<Transaction> savedTransactions = transactionCaptor.getAllValues();
+        assertEquals(2, savedTransactions.size());
+        
+        // First transaction should be TRANSFER_OUT
+        Transaction transferOutTransaction = savedTransactions.get(0);
+        assertEquals(TransactionType.TRANSFER_OUT, transferOutTransaction.getType());
+        assertEquals(transferAmount, transferOutTransaction.getAmount());
+        assertEquals(fromWalletId, transferOutTransaction.getWallet().getId());
+        
+        // Second transaction should be TRANSFER_IN
+        Transaction transferInTransaction = savedTransactions.get(1);
+        assertEquals(TransactionType.TRANSFER_IN, transferInTransaction.getType());
+        assertEquals(transferAmount, transferInTransaction.getAmount());
+        assertEquals(toWalletId, transferInTransaction.getWallet().getId());
+    }
+
+    @Test
+    @DisplayName("Should throw exception for insufficient balance in transfer")
+    void shouldThrowExceptionForInsufficientBalanceInTransfer() {
+        // Given
+        UUID fromWalletId = UUID.randomUUID();
+        UUID toWalletId = UUID.randomUUID();
+        BigDecimal transferAmount = new BigDecimal("150.00");
+        
+        Wallet fromWallet = new Wallet();
+        fromWallet.setId(fromWalletId);
+        fromWallet.setBalance(new BigDecimal("100.00"));
+        
+        when(walletRepository.findById(fromWalletId)).thenReturn(Optional.of(fromWallet));
+
+        // When & Then
+        assertThrows(IllegalArgumentException.class, () -> walletService.transfer(fromWalletId, toWalletId, transferAmount));
+        verify(walletRepository, times(1)).findById(fromWalletId);
+        verify(walletRepository, never()).save(any());
+        verify(transactionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should throw exception when transferring to same wallet")
+    void shouldThrowExceptionWhenTransferringToSameWallet() {
+        // Given
+        UUID walletId = UUID.randomUUID();
+        BigDecimal transferAmount = new BigDecimal("50.00");
+
+        // When & Then
+        assertThrows(IllegalArgumentException.class, () -> walletService.transfer(walletId, walletId, transferAmount));
+        verify(walletRepository, never()).findById(any());
+        verify(walletRepository, never()).save(any());
+        verify(transactionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should throw IllegalArgumentException for transfer amount <= 0")
+    void shouldThrowIllegalArgumentExceptionForInvalidTransferAmount() {
+        // Given
+        UUID fromWalletId = UUID.randomUUID();
+        UUID toWalletId = UUID.randomUUID();
+        BigDecimal invalidAmount = BigDecimal.ZERO;
+
+        // When & Then
+        assertThrows(IllegalArgumentException.class, () -> walletService.transfer(fromWalletId, toWalletId, invalidAmount));
+        verify(walletRepository, never()).findById(any());
+        verify(walletRepository, never()).save(any());
+        verify(transactionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should throw ResourceNotFoundException when source wallet not found")
+    void shouldThrowResourceNotFoundExceptionWhenSourceWalletNotFound() {
+        // Given
+        UUID fromWalletId = UUID.randomUUID();
+        UUID toWalletId = UUID.randomUUID();
+        BigDecimal transferAmount = new BigDecimal("50.00");
+        
+        when(walletRepository.findById(fromWalletId)).thenReturn(Optional.empty());
+
+        // When & Then
+        assertThrows(ResourceNotFoundException.class, () -> walletService.transfer(fromWalletId, toWalletId, transferAmount));
+        verify(walletRepository, times(1)).findById(fromWalletId);
+        verify(walletRepository, never()).save(any());
+        verify(transactionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should throw ResourceNotFoundException when destination wallet not found")
+    void shouldThrowResourceNotFoundExceptionWhenDestinationWalletNotFound() {
+        // Given
+        UUID fromWalletId = UUID.randomUUID();
+        UUID toWalletId = UUID.randomUUID();
+        BigDecimal transferAmount = new BigDecimal("50.00");
+        
+        Wallet fromWallet = new Wallet();
+        fromWallet.setId(fromWalletId);
+        fromWallet.setBalance(new BigDecimal("100.00"));
+        
+        when(walletRepository.findById(fromWalletId)).thenReturn(Optional.of(fromWallet));
+        when(walletRepository.findById(toWalletId)).thenReturn(Optional.empty());
+
+        // When & Then
+        assertThrows(ResourceNotFoundException.class, () -> walletService.transfer(fromWalletId, toWalletId, transferAmount));
+        verify(walletRepository, times(2)).findById(any(UUID.class));
+        verify(walletRepository, never()).save(any());
+        verify(transactionRepository, never()).save(any());
+    }
 }
