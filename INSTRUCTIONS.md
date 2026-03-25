@@ -51,7 +51,7 @@ Implement the following user stories using Test-Driven Development (TDD). Focus 
 5. **Peer-to-Peer Transfer**  
    As a wallet owner, I want to transfer funds to another wallet, so that I can pay others.  
    **Acceptance Criteria**:
-    - POST /transfers with {fromWalletId, toWalletId, amount > 0} is atomic.
+    - POST /wallets/transfer with {fromWalletId, toWalletId, amount > 0} is atomic.
     - Insufficient funds rolls back entirely, returns 400.
     - Two transaction records created (TRANSFER_OUT, TRANSFER_IN).
     - Success returns transfer details.

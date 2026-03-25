@@ -82,7 +82,7 @@ class TransferIntegrationTest extends BaseIntegrationTest {
         transferRequest.setToWalletId(receiverWallet.getId());
         transferRequest.setAmount(transferAmount);
 
-        String transferUrl = "http://localhost:" + port + "/transfers";
+        String transferUrl = "http://localhost:" + port + "/wallets/transfer";
         ResponseEntity<Void> transferResponse = restTemplate.postForEntity(transferUrl, transferRequest, Void.class);
         assertThat(transferResponse.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
 
@@ -162,7 +162,7 @@ class TransferIntegrationTest extends BaseIntegrationTest {
         transferRequest.setToWalletId(receiverWallet.getId());
         transferRequest.setAmount(transferAmount);
 
-        String transferUrl = "http://localhost:" + port + "/transfers";
+        String transferUrl = "http://localhost:" + port + "/wallets/transfer";
         
         try {
             restTemplate.postForEntity(transferUrl, transferRequest, Void.class);
@@ -208,7 +208,7 @@ class TransferIntegrationTest extends BaseIntegrationTest {
         transferRequest.setToWalletId(wallet.getId());
         transferRequest.setAmount(transferAmount);
 
-        String transferUrl = "http://localhost:" + port + "/transfers";
+        String transferUrl = "http://localhost:" + port + "/wallets/transfer";
         
         try {
             restTemplate.postForEntity(transferUrl, transferRequest, Void.class);

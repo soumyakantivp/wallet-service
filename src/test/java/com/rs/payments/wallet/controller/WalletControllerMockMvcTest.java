@@ -7,14 +7,17 @@ import com.rs.payments.wallet.dto.WithdrawRequest;
 import com.rs.payments.wallet.exception.ResourceNotFoundException;
 import com.rs.payments.wallet.model.Wallet;
 import com.rs.payments.wallet.service.WalletService;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -25,19 +28,24 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
-@AutoConfigureMockMvc
-@DisplayName("Wallet Controller Integration Tests")
+@ExtendWith(MockitoExtension.class)
+@DisplayName("Wallet Controller MockMvc Tests")
 class WalletControllerMockMvcTest {
 
     @Autowired
+    private WebApplicationContext webApplicationContext;
+
     private MockMvc mockMvc;
 
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
+    @Mock
     private WalletService walletService;
-
+    @BeforeEach
+    void setUp() {
+        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+    }
     @Test
     @DisplayName("POST /wallets/{id}/deposit should successfully deposit amount")
     void shouldSuccessfullyDepositAmount() throws Exception {
@@ -173,7 +181,7 @@ class WalletControllerMockMvcTest {
     }
 
     @Test
-    @DisplayName("POST /transfers should successfully transfer between wallets")
+    @DisplayName("POST /wallets/transfer should successfully transfer between wallets")
     void shouldSuccessfullyTransferBetweenWallets() throws Exception {
         // Given
         UUID fromWalletId = UUID.randomUUID();
@@ -188,7 +196,7 @@ class WalletControllerMockMvcTest {
         doNothing().when(walletService).transfer(fromWalletId, toWalletId, transferAmount);
 
         // When & Then
-        mockMvc.perform(post("/transfers")
+        mockMvc.perform(post("/wallets/transfer")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNoContent());
@@ -197,7 +205,7 @@ class WalletControllerMockMvcTest {
     }
 
     @Test
-    @DisplayName("POST /transfers should return 400 for insufficient balance")
+    @DisplayName("POST /wallets/transfer should return 400 for insufficient balance")
     void shouldReturnBadRequestForTransferWithInsufficientBalance() throws Exception {
         // Given
         UUID fromWalletId = UUID.randomUUID();
@@ -213,14 +221,14 @@ class WalletControllerMockMvcTest {
                 .when(walletService).transfer(fromWalletId, toWalletId, transferAmount);
 
         // When & Then
-        mockMvc.perform(post("/transfers")
+        mockMvc.perform(post("/wallets/transfer")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
-    @DisplayName("POST /transfers should return 400 for same wallet transfer")
+    @DisplayName("POST /wallets/transfer should return 400 for same wallet transfer")
     void shouldReturnBadRequestForSameWalletTransfer() throws Exception {
         // Given
         UUID walletId = UUID.randomUUID();
@@ -235,14 +243,14 @@ class WalletControllerMockMvcTest {
                 .when(walletService).transfer(walletId, walletId, transferAmount);
 
         // When & Then
-        mockMvc.perform(post("/transfers")
+        mockMvc.perform(post("/wallets/transfer")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
-    @DisplayName("POST /transfers should return 404 when source wallet not found")
+    @DisplayName("POST /wallets/transfer should return 404 when source wallet not found")
     void shouldReturnNotFoundForTransferFromNonExistentWallet() throws Exception {
         // Given
         UUID fromWalletId = UUID.randomUUID();
@@ -258,7 +266,7 @@ class WalletControllerMockMvcTest {
                 .when(walletService).transfer(fromWalletId, toWalletId, transferAmount);
 
         // When & Then
-        mockMvc.perform(post("/transfers")
+        mockMvc.perform(post("/wallets/transfer")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound());
