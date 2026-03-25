@@ -224,4 +224,39 @@ class WalletServiceImplTest {
         verify(walletRepository, never()).save(any());
         verify(transactionRepository, never()).save(any());
     }
+
+    @Test
+    @DisplayName("Should return correct balance for wallet")
+    void shouldReturnCorrectBalance() {
+        // Given
+        UUID walletId = UUID.randomUUID();
+        BigDecimal expectedBalance = new BigDecimal("250.50");
+        
+        Wallet wallet = new Wallet();
+        wallet.setId(walletId);
+        wallet.setBalance(expectedBalance);
+        
+        when(walletRepository.findById(walletId)).thenReturn(Optional.of(wallet));
+
+        // When
+        BigDecimal result = walletService.getBalance(walletId);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(expectedBalance, result);
+        verify(walletRepository, times(1)).findById(walletId);
+    }
+
+    @Test
+    @DisplayName("Should throw ResourceNotFoundException when wallet not found for getBalance")
+    void shouldThrowResourceNotFoundExceptionWhenWalletNotFoundForGetBalance() {
+        // Given
+        UUID walletId = UUID.randomUUID();
+        
+        when(walletRepository.findById(walletId)).thenReturn(Optional.empty());
+
+        // When & Then
+        assertThrows(ResourceNotFoundException.class, () -> walletService.getBalance(walletId));
+        verify(walletRepository, times(1)).findById(walletId);
+    }
 }
