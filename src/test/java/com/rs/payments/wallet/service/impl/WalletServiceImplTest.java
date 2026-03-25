@@ -139,4 +139,89 @@ class WalletServiceImplTest {
         verify(walletRepository, never()).save(any());
         verify(transactionRepository, never()).save(any());
     }
+
+    @Test
+    @DisplayName("Should reduce wallet balance on successful withdrawal")
+    void shouldReduceWalletBalanceOnSuccessfulWithdrawal() {
+        // Given
+        UUID walletId = UUID.randomUUID();
+        BigDecimal currentBalance = new BigDecimal("100.00");
+        BigDecimal withdrawAmount = new BigDecimal("50.00");
+        
+        Wallet wallet = new Wallet();
+        wallet.setId(walletId);
+        wallet.setBalance(currentBalance);
+        
+        when(walletRepository.findById(walletId)).thenReturn(Optional.of(wallet));
+        when(walletRepository.save(wallet)).thenReturn(wallet);
+
+        // When
+        Wallet result = walletService.withdraw(walletId, withdrawAmount);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(new BigDecimal("50.00"), result.getBalance());
+        verify(walletRepository, times(1)).findById(walletId);
+        verify(walletRepository, times(1)).save(wallet);
+        
+        // Verify transaction creation
+        ArgumentCaptor<Transaction> transactionCaptor = ArgumentCaptor.forClass(Transaction.class);
+        verify(transactionRepository, times(1)).save(transactionCaptor.capture());
+        
+        Transaction savedTransaction = transactionCaptor.getValue();
+        assertEquals(TransactionType.WITHDRAWAL, savedTransaction.getType());
+        assertEquals(withdrawAmount, savedTransaction.getAmount());
+        assertEquals(walletId, savedTransaction.getWallet().getId());
+    }
+
+    @Test
+    @DisplayName("Should throw exception for insufficient balance")
+    void shouldThrowExceptionForInsufficientBalance() {
+        // Given
+        UUID walletId = UUID.randomUUID();
+        BigDecimal currentBalance = new BigDecimal("30.00");
+        BigDecimal withdrawAmount = new BigDecimal("50.00");
+        
+        Wallet wallet = new Wallet();
+        wallet.setId(walletId);
+        wallet.setBalance(currentBalance);
+        
+        when(walletRepository.findById(walletId)).thenReturn(Optional.of(wallet));
+
+        // When & Then
+        assertThrows(IllegalArgumentException.class, () -> walletService.withdraw(walletId, withdrawAmount));
+        verify(walletRepository, times(1)).findById(walletId);
+        verify(walletRepository, never()).save(any());
+        verify(transactionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should throw IllegalArgumentException for amount <= 0")
+    void shouldThrowIllegalArgumentExceptionForInvalidWithdrawAmount() {
+        // Given
+        UUID walletId = UUID.randomUUID();
+        BigDecimal invalidAmount = BigDecimal.ZERO;
+
+        // When & Then
+        assertThrows(IllegalArgumentException.class, () -> walletService.withdraw(walletId, invalidAmount));
+        verify(walletRepository, never()).findById(any());
+        verify(walletRepository, never()).save(any());
+        verify(transactionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should throw ResourceNotFoundException if wallet not found for withdrawal")
+    void shouldThrowResourceNotFoundExceptionWhenWalletNotFoundForWithdrawal() {
+        // Given
+        UUID walletId = UUID.randomUUID();
+        BigDecimal withdrawAmount = new BigDecimal("50.00");
+        
+        when(walletRepository.findById(walletId)).thenReturn(Optional.empty());
+
+        // When & Then
+        assertThrows(ResourceNotFoundException.class, () -> walletService.withdraw(walletId, withdrawAmount));
+        verify(walletRepository, times(1)).findById(walletId);
+        verify(walletRepository, never()).save(any());
+        verify(transactionRepository, never()).save(any());
+    }
 }

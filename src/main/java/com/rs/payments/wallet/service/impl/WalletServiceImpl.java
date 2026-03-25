@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Service
 public class WalletServiceImpl implements WalletService {
@@ -59,6 +60,7 @@ public class WalletServiceImpl implements WalletService {
         transaction.setWallet(wallet);
         transaction.setAmount(amount);
         transaction.setType(TransactionType.DEPOSIT);
+        transaction.setTimestamp(LocalDateTime.now());
         transactionRepository.save(transaction);
         
         return wallet;
