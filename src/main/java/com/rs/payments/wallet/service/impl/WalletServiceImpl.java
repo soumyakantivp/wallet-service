@@ -92,4 +92,11 @@ public class WalletServiceImpl implements WalletService {
         
         return wallet;
     }
+
+    @Override
+    public BigDecimal getBalance(UUID walletId) {
+        Wallet wallet = walletRepository.findById(walletId)
+                .orElseThrow(() -> new ResourceNotFoundException("Wallet not found"));
+        return wallet.getBalance();
+    }
 }
